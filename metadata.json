@@ -1,0 +1,6 @@
+{
+  "name": "LearnPro AI",
+  "description": "AI-powered visual learning, personalized adaptive tutoring, RAG textbook intelligence, and continuous written assessment platform for Grade 5 IGCSE students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

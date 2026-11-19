@@ -1,0 +1,495 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'salmanazeer51@gmail.com';
+    }
+
+    function isOwnerId(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isClassroomFlagAllowed(data) {
+      return !data.keys().hasAny(['sharedWithClassroom']) || data.sharedWithClassroom == false || isAdmin();
+    }
+
+    function validSubject(s) {
+      return s in ['Mathematics', 'Science', 'English', 'Humanities', 'Computing'];
+    }
+
+    function validGrade(g) {
+      return g in ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'];
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserWorkspace(data, userId) {
+      return data.keys().hasAll(['uid', 'studentName', 'grade', 'curriculum', 'viewMode', 'streakDays', 'masteryPoints', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'studentName', 'grade', 'curriculum', 'viewMode', 'streakDays', 'masteryPoints', 'readingScore', 'independentScore', 'createdAt', 'updatedAt'])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 100
+        && validGrade(data.grade)
+        && data.curriculum is string && data.curriculum.size() >= 1 && data.curriculum.size() <= 60
+        && data.viewMode in ['student', 'teacher', 'parent']
+        && (data.viewMode != 'teacher' || isAdmin())
+        && data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 3650
+        && data.masteryPoints is int && data.masteryPoints >= 0 && data.masteryPoints <= 1000000
+        && (!data.keys().hasAny(['readingScore']) || (data.readingScore is int && data.readingScore >= 0 && data.readingScore <= 100))
+        && (!data.keys().hasAny(['independentScore']) || (data.independentScore is int && data.independentScore >= 0 && data.independentScore <= 100))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'createdAt'])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+        && (!data.keys().hasAny(['displayName']) || (data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTextbook(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'title', 'grade', 'pageCount', 'chunkCount', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'title', 'grade', 'pageCount', 'chunkCount', 'status', 'sharedWithClassroom', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && validGrade(data.grade)
+        && data.pageCount is int && data.pageCount >= 1 && data.pageCount <= 2000
+        && data.chunkCount is int && data.chunkCount >= 0 && data.chunkCount <= 5000
+        && data.status in ['ready', 'processing', 'error']
+        && (!data.keys().hasAny(['sharedWithClassroom']) || data.sharedWithClassroom is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTextbookChapter(data, textbookId) {
+      return data.keys().hasAll(['ownerId', 'textbookId', 'chapterNumber', 'title', 'summary', 'pageStart', 'pageEnd', 'topics', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'textbookId', 'chapterNumber', 'title', 'summary', 'pageStart', 'pageEnd', 'topics', 'sharedWithClassroom', 'createdAt'])
+        && isValidId(data.ownerId)
+        && data.textbookId == textbookId
+        && data.chapterNumber is int && data.chapterNumber >= 1 && data.chapterNumber <= 200
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 1200
+        && data.pageStart is int && data.pageStart >= 1 && data.pageStart <= 2000
+        && data.pageEnd is int && data.pageEnd >= data.pageStart && data.pageEnd <= 2000
+        && data.topics is list && data.topics.size() >= 1 && data.topics.size() <= 20 && data.topics[0] is string
+        && (!data.keys().hasAny(['sharedWithClassroom']) || data.sharedWithClassroom is bool)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTextbookChunk(data, textbookId) {
+      return data.keys().hasAll(['ownerId', 'textbookId', 'subject', 'chapterTitle', 'topicTitle', 'pageNumber', 'content', 'embedding', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'textbookId', 'subject', 'chapterTitle', 'topicTitle', 'pageNumber', 'content', 'embedding', 'sharedWithClassroom', 'createdAt'])
+        && isValidId(data.ownerId)
+        && data.textbookId == textbookId
+        && validSubject(data.subject)
+        && data.chapterTitle is string && data.chapterTitle.size() >= 1 && data.chapterTitle.size() <= 180
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && data.pageNumber is int && data.pageNumber >= 1 && data.pageNumber <= 2000
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 4000
+        && data.embedding is list && data.embedding.size() >= 1 && data.embedding.size() <= 768 && data.embedding[0] is number
+        && (!data.keys().hasAny(['sharedWithClassroom']) || data.sharedWithClassroom is bool)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidVisualLesson(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'textbookId', 'chapterTitle', 'topicTitle', 'title', 'visualType', 'storyIntro', 'lessonPayload', 'completed', 'comprehensionScore', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'textbookId', 'chapterTitle', 'topicTitle', 'title', 'visualType', 'storyIntro', 'lessonPayload', 'completed', 'comprehensionScore', 'sharedWithClassroom', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && isValidId(data.textbookId)
+        && data.chapterTitle is string && data.chapterTitle.size() >= 1 && data.chapterTitle.size() <= 180
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.visualType in ['fractions_geometry', 'science_lab', 'english_story', 'humanities_atlas', 'computing_logic']
+        && data.storyIntro is string && data.storyIntro.size() >= 1 && data.storyIntro.size() <= 1500
+        && data.lessonPayload is map && data.lessonPayload.keys().size() >= 1 && data.lessonPayload.keys().size() <= 20
+        && data.completed is bool
+        && data.comprehensionScore is int && data.comprehensionScore >= 0 && data.comprehensionScore <= 100
+        && (!data.keys().hasAny(['sharedWithClassroom']) || data.sharedWithClassroom is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTutorSession(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'topicTitle', 'textbookId', 'messageCount', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'topicTitle', 'textbookId', 'messageCount', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && isValidId(data.textbookId)
+        && data.messageCount is int && data.messageCount >= 0 && data.messageCount <= 500
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTutorMessage(data, sessionId) {
+      return data.keys().hasAll(['ownerId', 'sessionId', 'role', 'content', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'sessionId', 'role', 'content', 'citations', 'checkQuestion', 'createdAt'])
+        && isValidId(data.ownerId)
+        && data.sessionId == sessionId
+        && data.role in ['student', 'tutor']
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 6000
+        && (!data.keys().hasAny(['citations']) || (data.citations is list && data.citations.size() <= 10))
+        && (!data.keys().hasAny(['checkQuestion']) || (data.checkQuestion is string && data.checkQuestion.size() <= 500))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAssessment(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'title', 'assessmentType', 'chapterTitle', 'topicTitle', 'mode', 'status', 'questions', 'score', 'maxScore', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'title', 'assessmentType', 'chapterTitle', 'topicTitle', 'mode', 'status', 'questions', 'evaluation', 'score', 'maxScore', 'teacherNotes', 'handwrittenPreview', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.assessmentType in ['topic', 'daily', 'weekly', 'chapter', 'revision', 'cumulative']
+        && data.chapterTitle is string && data.chapterTitle.size() >= 1 && data.chapterTitle.size() <= 180
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && data.mode in ['digital', 'handwritten']
+        && data.status in ['pending', 'needs_review', 'graded']
+        && data.questions is list && data.questions.size() >= 1 && data.questions.size() <= 20
+        && (!data.keys().hasAny(['evaluation']) || (data.evaluation is map && data.evaluation.keys().size() <= 20))
+        && data.score is int && data.score >= 0 && data.score <= 1000
+        && data.maxScore is int && data.maxScore >= 1 && data.maxScore <= 1000
+        && (!data.keys().hasAny(['teacherNotes']) || (data.teacherNotes is string && data.teacherNotes.size() <= 2000))
+        && (!data.keys().hasAny(['handwrittenPreview']) || (data.handwrittenPreview is string && data.handwrittenPreview.size() <= 350000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMistakeRecord(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'topicTitle', 'questionPrompt', 'studentAnswer', 'correctAnswer', 'misunderstanding', 'simpleExplanation', 'visualHint', 'practiceQuestion', 'practiceAnswer', 'resolved', 'occurrenceCount', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'topicTitle', 'questionPrompt', 'studentAnswer', 'correctAnswer', 'misunderstanding', 'simpleExplanation', 'visualHint', 'practiceQuestion', 'practiceAnswer', 'resolved', 'occurrenceCount', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && data.questionPrompt is string && data.questionPrompt.size() >= 1 && data.questionPrompt.size() <= 1000
+        && data.studentAnswer is string && data.studentAnswer.size() >= 1 && data.studentAnswer.size() <= 1000
+        && data.correctAnswer is string && data.correctAnswer.size() >= 1 && data.correctAnswer.size() <= 1000
+        && data.misunderstanding is string && data.misunderstanding.size() >= 1 && data.misunderstanding.size() <= 1200
+        && data.simpleExplanation is string && data.simpleExplanation.size() >= 1 && data.simpleExplanation.size() <= 1500
+        && data.visualHint is string && data.visualHint.size() >= 1 && data.visualHint.size() <= 1200
+        && data.practiceQuestion is string && data.practiceQuestion.size() >= 1 && data.practiceQuestion.size() <= 1000
+        && data.practiceAnswer is string && data.practiceAnswer.size() >= 1 && data.practiceAnswer.size() <= 500
+        && data.resolved is bool
+        && data.occurrenceCount is int && data.occurrenceCount >= 1 && data.occurrenceCount <= 500
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRevisionItem(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'topicTitle', 'stageIndex', 'intervalDays', 'retentionScore', 'rememberedCount', 'forgottenCount', 'status', 'nextReviewAt', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'topicTitle', 'stageIndex', 'intervalDays', 'retentionScore', 'rememberedCount', 'forgottenCount', 'status', 'nextReviewAt', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && data.stageIndex is int && data.stageIndex >= 0 && data.stageIndex <= 4
+        && data.intervalDays is int && data.intervalDays >= 0 && data.intervalDays <= 60
+        && data.retentionScore is int && data.retentionScore >= 0 && data.retentionScore <= 100
+        && data.rememberedCount is int && data.rememberedCount >= 0 && data.rememberedCount <= 500
+        && data.forgottenCount is int && data.forgottenCount >= 0 && data.forgottenCount <= 500
+        && data.status in ['due', 'scheduled', 'mastered']
+        && data.nextReviewAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAssignedPlan(data) {
+      return data.keys().hasAll(['ownerId', 'subject', 'title', 'topicTitle', 'itemType', 'status', 'dueDate', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'subject', 'title', 'topicTitle', 'itemType', 'status', 'dueDate', 'sharedWithClassroom', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && validSubject(data.subject)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 180
+        && data.itemType in ['lesson', 'assessment', 'revision']
+        && data.status in ['pending', 'completed']
+        && data.dueDate is string && data.dueDate.size() >= 1 && data.dueDate.size() <= 40
+        && (!data.keys().hasAny(['sharedWithClassroom']) || data.sharedWithClassroom is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // Startup connectivity check document
+    match /test/connection {
+      allow get: if isSignedIn();
+    }
+
+    // User Workspace Profile (no PII)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwnerId(userId) || isAdmin());
+      allow create: if isValidId(userId) && isOwnerId(userId)
+        && isValidUserWorkspace(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) && (isOwnerId(userId) || isAdmin())
+        && isValidUserWorkspace(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            incoming().diff(existing()).affectedKeys().hasOnly(['viewMode', 'studentName', 'grade', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['streakDays', 'masteryPoints', 'readingScore', 'independentScore', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+
+      // Strictly isolated PII subcollection
+      match /private/info {
+        allow get: if isValidId(userId) && (isOwnerId(userId) || isAdmin());
+        allow create: if isValidId(userId) && isOwnerId(userId)
+          && isValidUserPrivateInfo(incoming(), userId)
+          && incoming().createdAt == request.time;
+        allow update: if isValidId(userId) && isOwnerId(userId)
+          && isValidUserPrivateInfo(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['displayName']);
+        allow delete: if isValidId(userId) && isAdmin();
+      }
+    }
+
+    // Textbooks & Subcollections (Master Gate + Teacher Shared Classroom Read)
+    match /textbooks/{textbookId} {
+      allow get: if isValidId(textbookId) && isSignedIn() && (isOwnerId(existing().ownerId) || existing().sharedWithClassroom == true || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.sharedWithClassroom == true || isAdmin());
+      allow create: if isValidId(textbookId) && isSignedIn()
+        && isValidTextbook(incoming())
+        && incoming().ownerId == request.auth.uid
+        && isClassroomFlagAllowed(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(textbookId) && (isOwnerId(existing().ownerId) || isAdmin())
+        && isValidTextbook(incoming())
+        && incoming().ownerId == existing().ownerId
+        && isClassroomFlagAllowed(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || incoming().diff(existing()).affectedKeys().hasOnly(['chunkCount', 'status', 'title', 'updatedAt'])
+        );
+      allow delete: if isValidId(textbookId) && (isOwnerId(existing().ownerId) || isAdmin());
+
+      match /chapters/{chapterId} {
+        allow get: if isValidId(textbookId) && isValidId(chapterId) && isSignedIn()
+          && (isOwnerId(existing().ownerId) || existing().sharedWithClassroom == true || isAdmin());
+        allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.sharedWithClassroom == true || isAdmin());
+        allow create: if isValidId(textbookId) && isValidId(chapterId) && isSignedIn()
+          && isValidTextbookChapter(incoming(), textbookId)
+          && incoming().ownerId == request.auth.uid
+          && isClassroomFlagAllowed(incoming())
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/textbooks/$(textbookId))
+          && get(/databases/$(database)/documents/textbooks/$(textbookId)).data.ownerId == request.auth.uid;
+        allow update: if isValidId(textbookId) && isValidId(chapterId)
+          && (isOwnerId(existing().ownerId) || isAdmin())
+          && isValidTextbookChapter(incoming(), textbookId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().textbookId == existing().textbookId
+          && isClassroomFlagAllowed(incoming())
+          && incoming().createdAt == existing().createdAt
+          && get(/databases/$(database)/documents/textbooks/$(textbookId)).data.ownerId == existing().ownerId
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'summary', 'topics', 'pageStart', 'pageEnd']);
+        allow delete: if isValidId(textbookId) && isValidId(chapterId)
+          && (isOwnerId(existing().ownerId) || isAdmin());
+      }
+
+      match /chunks/{chunkId} {
+        allow get: if isValidId(textbookId) && isValidId(chunkId) && isSignedIn()
+          && (isOwnerId(existing().ownerId) || existing().sharedWithClassroom == true || isAdmin());
+        allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.sharedWithClassroom == true || isAdmin());
+        allow create: if isValidId(textbookId) && isValidId(chunkId) && isSignedIn()
+          && isValidTextbookChunk(incoming(), textbookId)
+          && incoming().ownerId == request.auth.uid
+          && isClassroomFlagAllowed(incoming())
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/textbooks/$(textbookId))
+          && get(/databases/$(database)/documents/textbooks/$(textbookId)).data.ownerId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isValidId(textbookId) && isValidId(chunkId)
+          && (isOwnerId(existing().ownerId) || isAdmin());
+      }
+    }
+
+    // Visual Lessons
+    match /visualLessons/{lessonId} {
+      allow get: if isValidId(lessonId) && isSignedIn() && (isOwnerId(existing().ownerId) || existing().sharedWithClassroom == true || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.sharedWithClassroom == true || isAdmin());
+      allow create: if isValidId(lessonId) && isSignedIn()
+        && isValidVisualLesson(incoming())
+        && incoming().ownerId == request.auth.uid
+        && isClassroomFlagAllowed(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/textbooks/$(incoming().textbookId))
+        && (
+          get(/databases/$(database)/documents/textbooks/$(incoming().textbookId)).data.ownerId == request.auth.uid
+          || get(/databases/$(database)/documents/textbooks/$(incoming().textbookId)).data.sharedWithClassroom == true
+        );
+      allow update: if isValidId(lessonId) && (isOwnerId(existing().ownerId) || isAdmin())
+        && isValidVisualLesson(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().textbookId == existing().textbookId
+        && isClassroomFlagAllowed(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'comprehensionScore', 'updatedAt'])
+        );
+      allow delete: if isValidId(lessonId) && (isOwnerId(existing().ownerId) || isAdmin());
+    }
+
+    // Tutor Sessions & Messages (Master Gate)
+    match /tutorSessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (isOwnerId(existing().ownerId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(sessionId) && isSignedIn()
+        && isValidTutorSession(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(sessionId) && (isOwnerId(existing().ownerId) || isAdmin())
+        && isValidTutorSession(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['messageCount', 'updatedAt']);
+      allow delete: if isValidId(sessionId) && (isOwnerId(existing().ownerId) || isAdmin());
+
+      match /messages/{messageId} {
+        allow get: if isValidId(sessionId) && isValidId(messageId)
+          && (isOwnerId(existing().ownerId) || isAdmin());
+        allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+        allow create: if isValidId(sessionId) && isValidId(messageId) && isSignedIn()
+          && isValidTutorMessage(incoming(), sessionId)
+          && incoming().ownerId == request.auth.uid
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/tutorSessions/$(sessionId))
+          && get(/databases/$(database)/documents/tutorSessions/$(sessionId)).data.ownerId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isValidId(sessionId) && isValidId(messageId)
+          && (isOwnerId(existing().ownerId) || isAdmin());
+      }
+    }
+
+    // Continuous Assessments
+    match /assessments/{assessmentId} {
+      allow get: if isValidId(assessmentId) && (isOwnerId(existing().ownerId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(assessmentId) && isSignedIn()
+        && isValidAssessment(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(assessmentId) && (isOwnerId(existing().ownerId) || isAdmin())
+        && isValidAssessment(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().mode == existing().mode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (existing().status == 'pending' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'evaluation', 'score', 'maxScore', 'handwrittenPreview', 'updatedAt']))
+          || (existing().status == 'needs_review' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'score', 'teacherNotes', 'evaluation', 'updatedAt']))
+          || (existing().status == 'graded' && incoming().diff(existing()).affectedKeys().hasOnly(['teacherNotes', 'updatedAt']))
+        );
+      allow delete: if isValidId(assessmentId) && (isOwnerId(existing().ownerId) || isAdmin());
+    }
+
+    // Mistake Analysis Records
+    match /mistakes/{mistakeId} {
+      allow get: if isValidId(mistakeId) && (isOwnerId(existing().ownerId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(mistakeId) && isSignedIn()
+        && isValidMistakeRecord(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(mistakeId) && (isOwnerId(existing().ownerId) || isAdmin())
+        && isValidMistakeRecord(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || incoming().diff(existing()).affectedKeys().hasOnly(['resolved', 'occurrenceCount', 'updatedAt'])
+        );
+      allow delete: if isValidId(mistakeId) && (isOwnerId(existing().ownerId) || isAdmin());
+    }
+
+    // Spaced-Repetition Memory Retention Items
+    match /revisions/{revisionId} {
+      allow get: if isValidId(revisionId) && (isOwnerId(existing().ownerId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(revisionId) && isSignedIn()
+        && isValidRevisionItem(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(revisionId) && (isOwnerId(existing().ownerId) || isAdmin())
+        && isValidRevisionItem(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || incoming().diff(existing()).affectedKeys().hasOnly(['stageIndex', 'intervalDays', 'retentionScore', 'rememberedCount', 'forgottenCount', 'status', 'nextReviewAt', 'updatedAt'])
+        );
+      allow delete: if isValidId(revisionId) && (isOwnerId(existing().ownerId) || isAdmin());
+    }
+
+    // Teacher-Assigned Daily Learning Plans
+    match /assignedPlans/{planId} {
+      allow get: if isValidId(planId) && isSignedIn() && (isOwnerId(existing().ownerId) || existing().sharedWithClassroom == true || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.sharedWithClassroom == true || isAdmin());
+      allow create: if isValidId(planId) && isSignedIn()
+        && isValidAssignedPlan(incoming())
+        && incoming().ownerId == request.auth.uid
+        && isClassroomFlagAllowed(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(planId) && isSignedIn() && (isOwnerId(existing().ownerId) || existing().sharedWithClassroom == true || isAdmin())
+        && isValidAssignedPlan(incoming())
+        && incoming().ownerId == existing().ownerId
+        && (isAdmin() || !incoming().diff(existing()).affectedKeys().hasAny(['sharedWithClassroom']))
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (isOwnerId(existing().ownerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'dueDate', 'updatedAt']))
+          || (existing().sharedWithClassroom == true && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+        );
+      allow delete: if isValidId(planId) && (isOwnerId(existing().ownerId) || isAdmin());
+    }
+  }
+}

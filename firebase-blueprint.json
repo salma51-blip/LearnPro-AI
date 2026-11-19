@@ -1,0 +1,687 @@
+{
+  "entities": {
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "Student learning profile and active workspace state (PII isolated to private subcollection).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "grade": {
+          "type": "string",
+          "enum": ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"]
+        },
+        "curriculum": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "viewMode": {
+          "type": "string",
+          "enum": ["student", "teacher", "parent"]
+        },
+        "streakDays": {
+          "type": "integer"
+        },
+        "masteryPoints": {
+          "type": "integer"
+        },
+        "readingScore": {
+          "type": "integer"
+        },
+        "independentScore": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "studentName", "grade", "curriculum", "viewMode", "streakDays", "masteryPoints", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Strictly owner-isolated PII for authenticated user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Textbook": {
+      "title": "Textbook",
+      "description": "Uploaded PDF textbook metadata and syllabus summary.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "grade": {
+          "type": "string",
+          "enum": ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"]
+        },
+        "pageCount": {
+          "type": "integer"
+        },
+        "chunkCount": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "processing", "error"]
+        },
+        "sharedWithClassroom": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "title", "grade", "pageCount", "chunkCount", "status", "createdAt", "updatedAt"]
+    },
+    "TextbookChapter": {
+      "title": "TextbookChapter",
+      "description": "Structured chapter and topic breakdown extracted from a textbook.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "textbookId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "chapterNumber": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "pageStart": {
+          "type": "integer"
+        },
+        "pageEnd": {
+          "type": "integer"
+        },
+        "topics": {
+          "type": "array"
+        },
+        "sharedWithClassroom": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "textbookId", "chapterNumber", "title", "summary", "pageStart", "pageEnd", "topics", "createdAt"]
+    },
+    "TextbookChunk": {
+      "title": "TextbookChunk",
+      "description": "Indexed textbook passage with page citation and vector embedding for RAG retrieval.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "textbookId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "chapterTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "pageNumber": {
+          "type": "integer"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "embedding": {
+          "type": "array"
+        },
+        "sharedWithClassroom": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "textbookId", "subject", "chapterTitle", "topicTitle", "pageNumber", "content", "embedding", "createdAt"]
+    },
+    "VisualLesson": {
+      "title": "VisualLesson",
+      "description": "Interactive visual learning experience grounded in textbook citations.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "textbookId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "chapterTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "visualType": {
+          "type": "string",
+          "enum": ["fractions_geometry", "science_lab", "english_story", "humanities_atlas", "computing_logic"]
+        },
+        "storyIntro": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "lessonPayload": {
+          "type": "object"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "comprehensionScore": {
+          "type": "integer"
+        },
+        "sharedWithClassroom": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "textbookId", "chapterTitle", "topicTitle", "title", "visualType", "storyIntro", "lessonPayload", "completed", "comprehensionScore", "createdAt", "updatedAt"]
+    },
+    "TutorSession": {
+      "title": "TutorSession",
+      "description": "Adaptive AI tutor session anchored to a subject and topic.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "textbookId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "messageCount": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "topicTitle", "textbookId", "messageCount", "createdAt", "updatedAt"]
+    },
+    "TutorMessage": {
+      "title": "TutorMessage",
+      "description": "Individual message inside an adaptive AI tutor session.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["student", "tutor"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 6000
+        },
+        "citations": {
+          "type": "array"
+        },
+        "checkQuestion": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "sessionId", "role", "content", "createdAt"]
+    },
+    "Assessment": {
+      "title": "Assessment",
+      "description": "Continuous written assessment (digital or handwritten photo OCR evaluation).",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "assessmentType": {
+          "type": "string",
+          "enum": ["topic", "daily", "weekly", "chapter", "revision", "cumulative"]
+        },
+        "chapterTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["digital", "handwritten"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "needs_review", "graded"]
+        },
+        "questions": {
+          "type": "array"
+        },
+        "evaluation": {
+          "type": "object"
+        },
+        "score": {
+          "type": "integer"
+        },
+        "maxScore": {
+          "type": "integer"
+        },
+        "teacherNotes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "handwrittenPreview": {
+          "type": "string",
+          "maxLength": 350000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "title", "assessmentType", "chapterTitle", "topicTitle", "mode", "status", "questions", "score", "maxScore", "createdAt", "updatedAt"]
+    },
+    "MistakeRecord": {
+      "title": "MistakeRecord",
+      "description": "Tracked conceptual misunderstanding and remediation practice.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "questionPrompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "studentAnswer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "correctAnswer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "misunderstanding": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "simpleExplanation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "visualHint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "practiceQuestion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "practiceAnswer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "resolved": {
+          "type": "boolean"
+        },
+        "occurrenceCount": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "topicTitle", "questionPrompt", "studentAnswer", "correctAnswer", "misunderstanding", "simpleExplanation", "visualHint", "practiceQuestion", "practiceAnswer", "resolved", "occurrenceCount", "createdAt", "updatedAt"]
+    },
+    "RevisionItem": {
+      "title": "RevisionItem",
+      "description": "Spaced-repetition memory retention item (Immediate, 1d, 3d, 7d, 15d).",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "stageIndex": {
+          "type": "integer"
+        },
+        "intervalDays": {
+          "type": "integer"
+        },
+        "retentionScore": {
+          "type": "integer"
+        },
+        "rememberedCount": {
+          "type": "integer"
+        },
+        "forgottenCount": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["due", "scheduled", "mastered"]
+        },
+        "nextReviewAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "topicTitle", "stageIndex", "intervalDays", "retentionScore", "rememberedCount", "forgottenCount", "status", "nextReviewAt", "createdAt", "updatedAt"]
+    },
+    "AssignedPlan": {
+      "title": "AssignedPlan",
+      "description": "Teacher-assigned lesson or assessment task in the student's daily plan.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Mathematics", "Science", "English", "Humanities", "Computing"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "itemType": {
+          "type": "string",
+          "enum": ["lesson", "assessment", "revision"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "completed"]
+        },
+        "dueDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "sharedWithClassroom": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "subject", "title", "topicTitle", "itemType", "status", "dueDate", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserWorkspace" },
+      "description": "Student learning profile and workspace preferences."
+    },
+    "/users/{userId}/private/info": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Strictly private user PII (email, display name)."
+    },
+    "/textbooks/{textbookId}": {
+      "schema": { "$ref": "#/entities/Textbook" },
+      "description": "Uploaded PDF textbooks organized by subject."
+    },
+    "/textbooks/{textbookId}/chapters/{chapterId}": {
+      "schema": { "$ref": "#/entities/TextbookChapter" },
+      "description": "Extracted chapters and topics belonging to a textbook."
+    },
+    "/textbooks/{textbookId}/chunks/{chunkId}": {
+      "schema": { "$ref": "#/entities/TextbookChunk" },
+      "description": "RAG vector chunks belonging to a textbook."
+    },
+    "/visualLessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/VisualLesson" },
+      "description": "Interactive visual learning experiences per topic."
+    },
+    "/tutorSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/TutorSession" },
+      "description": "Adaptive AI tutor sessions."
+    },
+    "/tutorSessions/{sessionId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/TutorMessage" },
+      "description": "Conversation messages inside a tutor session."
+    },
+    "/assessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/Assessment" },
+      "description": "Continuous written and handwritten assessments."
+    },
+    "/mistakes/{mistakeId}": {
+      "schema": { "$ref": "#/entities/MistakeRecord" },
+      "description": "Tracked mistakes, misunderstandings, and remediation drills."
+    },
+    "/revisions/{revisionId}": {
+      "schema": { "$ref": "#/entities/RevisionItem" },
+      "description": "Spaced-repetition memory retention schedule."
+    },
+    "/assignedPlans/{planId}": {
+      "schema": { "$ref": "#/entities/AssignedPlan" },
+      "description": "Teacher-assigned daily learning plan tasks."
+    }
+  }
+}
